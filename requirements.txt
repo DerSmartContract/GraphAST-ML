@@ -1,0 +1,5 @@
+astpretty==2.1.0
+networkx==3.0
+torch
+torch-geometric==2.2.0
+pytest==7.3.1
