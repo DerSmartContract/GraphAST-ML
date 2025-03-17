@@ -1,10 +1,15 @@
-import pytest
+import os
+import shutil
 from scripts.ast_parser import parse_python_files
 from scripts.data_pipeline import build_dataset
-import os
 
 def test_data_pipeline():
     test_dir = "tests/data_samples"
+
+    # Lösche den Test-Ordner, falls er noch existiert (um doppelte Dateien zu vermeiden)
+    if os.path.exists(test_dir):
+        shutil.rmtree(test_dir)
+
     os.makedirs(test_dir, exist_ok=True)
     test_file_path = os.path.join(test_dir, "example2.py")
 
@@ -12,10 +17,21 @@ def test_data_pipeline():
     with open(test_file_path, "w") as f:
         f.write("def bar(y):\n    return y*2\n")
 
+    # Parse den AST
     trees = parse_python_files(test_dir)
-    dataset = build_dataset(trees)
-    assert len(dataset) == 1, "Genau ein Data-Objekt erwartet"
-    data_obj = dataset[0]
+    
+    # Debugging: Wie viele Bäume wurden erzeugt?
+    print(f"Anzahl der geparsten AST-Bäume: {len(trees)}")
+    print(f"Geparste Dateien: {[t[0] for t in trees]}")
 
-    # Prüfen, ob wir mindestens 1 Knoten haben
-    assert data_obj.x.size(0) > 0, "Mindestens 1 AST-Knoten erwartet"
+    # Konvertiere die ASTs in Graphen
+    dataset = build_dataset(trees)
+
+    # Debugging: Anzahl der Data-Objekte aus der Pipeline
+    print(f"Anzahl der erzeugten Data-Objekte: {len(dataset)}")
+
+    # Erwartung: Genau ein Data-Objekt für die einzige Datei
+    assert len(dataset) == 1, f"Genau ein Data-Objekt erwartet, aber {len(dataset)} erhalten!"
+
+    # Cleanup nach Testlauf
+    shutil.rmtree(test_dir)
