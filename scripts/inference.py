@@ -1,39 +1,40 @@
 import torch
-from torch_geometric.loader import DataLoader
-
+from scripts.model_training import SimpleGCN
 from scripts.ast_parser import parse_python_files
 from scripts.data_pipeline import build_dataset
-from scripts.model_training import SimpleGCN
 
 def load_model(model_path, input_dim=1, hidden_dim=16, output_dim=2):
+    """Lädt das gespeicherte Modell für Vorhersagen."""
     model = SimpleGCN(input_dim, hidden_dim, output_dim)
     model.load_state_dict(torch.load(model_path))
     model.eval()
     return model
 
-def run_inference(model, dataset):
-    loader = DataLoader(dataset, batch_size=1, shuffle=False)
-    results = []
-    for data_obj in loader:
-        with torch.no_grad():
-            out = model(data_obj)
-            graph_embedding = out.mean(dim=0, keepdim=True)
-            # Hier nur Argmax als Beispiel
-            pred_class = torch.argmax(graph_embedding, dim=1).item()
-            results.append(pred_class)
-    return results
-
 if __name__ == "__main__":
-    # Beispielhafter Ablauf: Nimm an, wir haben model.pt (trainiert)
-    model_path = "model.pt"  # Pfad anpassen an dein Setup
-    model = load_model(model_path)
+    model_path = "saved_models/trained_model.pth"
+    try:
+        model = load_model(model_path)
+        print(f"✅ Modell '{model_path}' erfolgreich geladen!")
+    except FileNotFoundError:
+        print(f"❌ Modell '{model_path}' nicht gefunden!")
+        exit()
 
-    # ASTs parsen
-    new_code_dir = "data/raw"  # Oder beliebiger anderer Ordner
-    ast_list = parse_python_files(new_code_dir)
-    dataset = build_dataset(ast_list)
+    print("🔍 Parsing neuer Code-Dateien ...")
+    trees = parse_python_files("data/raw")
 
-    # Inferenz durchführen
-    preds = run_inference(model, dataset)
-    for i, pred in enumerate(preds):
-        print(f"Datei {ast_list[i][0]} -> Prognose-Klasse: {pred}")
+    if not trees:
+        print("⚠️ Keine Dateien gefunden!")
+        exit()
+
+    dataset = build_dataset(trees)
+    
+    if not dataset:
+        print("⚠️ Keine Daten zur Vorhersage verfügbar!")
+        exit()
+
+    print("🧠 Modell macht Vorhersagen ...")
+    for i, data in enumerate(dataset):
+        with torch.no_grad():
+            out = model(data)
+            predicted_classes = out.argmax(dim=-1).tolist()
+            print(f"🔹 Vorhersagen für Datei {i+1} (Shape: {out.shape}): {predicted_classes}")
